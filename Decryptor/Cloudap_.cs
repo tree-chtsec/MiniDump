@@ -17,6 +17,9 @@ namespace Minidump.Decryptor
             long logSessListAddr;
             long llCurrent;
 
+            if (template.signature == null)
+                return 0;
+
             long position = find_signature(minidump, "cloudAP.dll", template.signature);
             if (position == 0)
                 return 0;

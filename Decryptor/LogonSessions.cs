@@ -175,8 +175,8 @@ namespace Minidump.Decryptor
             ulong logonSessionOffset = get_ptr_with_offset(minidump.fileBinaryReader, (logonSessionListSignOffset + template.LogonSessionListCountOffset), minidump.sysinfo);
             uint logonSessionListCount = ReadInt8(minidump.fileBinaryReader, (long)logonSessionOffset);
 
-            //Console.WriteLine($"logonSessionOffset {(Int32)logonSessionOffset}");
-            //Console.WriteLine($"Parsing {logonSessionListCount} logon sessions");
+            Console.WriteLine($"logonSessionOffset {(Int32)logonSessionOffset}");
+            Console.WriteLine($"Parsing {logonSessionListCount} logon sessions");
 
             long offset = logonSessionListSignOffset + template.first_entry_offset;
             long listMemOffset = ReadInt32(minidump.fileBinaryReader, logonSessionListSignOffset + template.first_entry_offset);
@@ -200,14 +200,18 @@ namespace Minidump.Decryptor
                 int count = 0;
                 do
                 {
-                    listentry = Rva2offset(minidump, ReadInt64(minidump.fileBinaryReader, pos));
-                    //Console.WriteLine($"listentry {listentry}");
+                    long rva = ReadInt64(minidump.fileBinaryReader, pos);
+                    listentry = Rva2offset(minidump, rva);
+                    Console.WriteLine($"entry_ptr {entry_ptr} listentry {listentry}, Rva {rva}, Pos {pos}");
 
                     count++;
                     if (count >= 255)
                         return null;
 
                     if (listentry == 0)
+                        break;
+
+                    if (entry_ptr == listentry)
                         break;
 
                     if (offsetlist.Contains((listentry)))
@@ -226,6 +230,19 @@ namespace Minidump.Decryptor
                     logonsession.pCredentials = ReadInt64(minidump.fileBinaryReader, listentry + template.CredentialsOffset);
                     logonsession.pCredentialManager = ReadInt64(minidump.fileBinaryReader, listentry + template.CredentialManagerOffset);
                     logonsession.pSid = listentry + template.pSidOffset;
+
+                    if (logonsession.pCredentialManager != 0)
+                    {
+                        Parse_Credman_Credentials(minidump, logonsession, out bool isComplete);
+                        if (isComplete)
+                        {
+                            break;
+                        }
+                    }
+
+                    //IntPtr flink = ReadStruct<IntPtr>(ReadBytes(minidump.fileBinaryReader, listentry, IntPtr.Size));
+                    //long _flink = ReadStruct<IntPtr>(ReadBytes(minidump.fileBinaryReader, Rva2offset(minidump, flink.ToInt64()), IntPtr.Size)).ToInt64();
+                    //Console.WriteLine($"FLink = {_flink}");
 
                     var luid = ReadStruct<LUID>(ReadBytes(minidump.fileBinaryReader, logonsession.LogonId, 4));
 
@@ -268,6 +285,17 @@ namespace Minidump.Decryptor
             }
 
             return logonlist;
+        }
+
+        // https://github.com/skelsec/pypykatz/blob/5f14769fa51d4fc3bcd3d4d3cc865472fde65a6f/pypykatz/lsadecryptor/packages/msv/decryptor.py#L334
+        private static void Parse_Credman_Credentials(Program.MiniDump minidump, KIWI_BASIC_SECURITY_LOGON_SESSION_DATA logonsession, out bool shouldBreak)
+        {
+            KIWI_CREDMAN_SET_LIST_ENTRY credmanSet = ReadStruct<KIWI_CREDMAN_SET_LIST_ENTRY>(ReadBytes(minidump.fileBinaryReader, Rva2offset(minidump, logonsession.pCredentialManager), Marshal.SizeOf(typeof(KIWI_CREDMAN_SET_LIST_ENTRY))));
+            KIWI_CREDMAN_LIST_STARTER list_starter = ReadStruct<KIWI_CREDMAN_LIST_STARTER>(ReadBytes(minidump.fileBinaryReader, Rva2offset(minidump, credmanSet.list1.ToInt64()), Marshal.SizeOf(typeof(KIWI_CREDMAN_LIST_STARTER))));
+            long list_starter_pos = list_starter.start.ToInt64();
+            long list_starter_value = ReadStruct<IntPtr>(ReadBytes(minidump.fileBinaryReader, Rva2offset(minidump, list_starter_pos), IntPtr.Size)).ToInt64();
+
+            shouldBreak = list_starter_value != list_starter_pos;
         }
 
         [StructLayout(LayoutKind.Sequential)]

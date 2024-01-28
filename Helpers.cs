@@ -114,6 +114,7 @@ namespace Minidump
                     int offset = PatternAt(data, pattern);
                     if (offset != -1)
                     {
+                        Console.WriteLine($"Start Virtual Address of {module_name} = {ms.start_virtual_address}");
                         return (ms.start_file_address + offset);
                     }
                 }

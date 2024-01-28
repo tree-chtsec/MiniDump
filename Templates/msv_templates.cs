@@ -192,11 +192,23 @@ namespace Minidump.Templates
                     template.first_entry_offset = 23;
                     template.LogonSessionListCountOffset = -4;
                 }
-                else
+                else if((int)SystemInfo.WindowsBuild.WIN_10_1903 <= sysinfo.BuildNumber && sysinfo.BuildNumber < (int)SystemInfo.WindowsBuild.WIN_11_2022)
                 {
                     //1903
                     template.signature = new byte[] { 0x33, 0xff, 0x41, 0x89, 0x37, 0x4c, 0x8b, 0xf3, 0x45, 0x85, 0xc0, 0x74 };
                     template.first_entry_offset = 23;
+                    template.LogonSessionListCountOffset = -4;
+                }
+                else if ((int)SystemInfo.WindowsBuild.WIN_11_2022 <= sysinfo.BuildNumber && sysinfo.BuildNumber < (int)SystemInfo.WindowsBuild.WIN_11_2023)
+                {
+                    template.signature = new byte[] { 0x45, 0x89, 0x34, 0x24, 0x4c, 0x8b, 0xff, 0x8b, 0xf3, 0x45, 0x85, 0xc0, 0x74 };
+                    template.first_entry_offset = 24;
+                    template.LogonSessionListCountOffset = -4;
+                }
+                else
+                {
+                    template.signature = new byte[] { 0x45, 0x89, 0x37, 0x4c, 0x8b, 0xf7, 0x8b, 0xf3, 0x45, 0x85, 0xc0, 0xf };
+                    template.first_entry_offset = 27;
                     template.LogonSessionListCountOffset = -4;
                 }
             }
